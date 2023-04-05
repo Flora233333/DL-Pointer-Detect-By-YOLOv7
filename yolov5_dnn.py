@@ -1,3 +1,5 @@
+import random
+
 import cv2
 import numpy as np
 import time
@@ -173,9 +175,9 @@ class yolov5():
             output[xi] = x[i]
         return output
 
-    def detect(self, srcimg):
-        im = srcimg.copy()
-        im, ratio, wh = self.letterbox(srcimg, self.inpWidth, stride=self.stride, auto=False)
+    def detect(self, src_img):
+        im = src_img.copy()
+        im, ratio, wh = self.letterbox(src_img, self.inpWidth, stride=self.stride, auto=False)
         # Sets the input to the network
         blob = cv2.dnn.blobFromImage(im, 1 / 255.0, swapRB=True, crop=False)
         self.net.setInput(blob)
@@ -185,6 +187,7 @@ class yolov5():
 
         center_nut = [100000000, 100000000]  # 表示inf
         point = [0, 0]
+
         # draw box
         for i in pred[0]:
             left = int((i[0] - wh[0]) / ratio[0])
@@ -194,7 +197,7 @@ class yolov5():
             conf = i[4]
             classId = i[5]
             _class = self.classes[int(classId)]
-            cv2.rectangle(srcimg, (int(left), int(top)), (int(width), int(height)), colors(classId, True), 5,
+            cv2.rectangle(src_img, (int(left), int(top)), (int(width), int(height)), colors(classId, True), 5,
                           lineType=cv2.LINE_AA)
             # label = '%.2f' % conf
             # label = '%s:%s' % (self.classes[int(classId)], label)
@@ -210,39 +213,42 @@ class yolov5():
                 center_nut[0] = center_x
                 center_nut[1] = center_y
             if _class == 'pointer':
+                # pointer = src_img[top + 5:height - 5, left + 5:width - 5]  # 这个加5减5是为了去除框的红线的，虽然其实可以在画红线前取
+                # cv2.imshow("1", pointer)
+                # cv2.imwrite(f"./pointer/{random.randint(1, 20)}.jpg", pointer)
                 point[0] = center_x
                 point[1] = center_y
 
             # Display the label at the top of the bounding box
             labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
             top = max(top, labelSize[1])
-            cv2.putText(srcimg, label, (int(left - 20), int(top - 10)), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 255),
+            cv2.putText(src_img, label, (int(left - 20), int(top - 10)), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 255),
                         thickness=4, lineType=cv2.LINE_AA)
 
         fix_center_nut_y = center_nut[1] - 130  # 修正后的中心y坐标
 
-        cv2.line(srcimg, (point[0], point[1]), (center_nut[0], fix_center_nut_y), (0, 255, 0), 5)  # 画指针线
+        cv2.line(src_img, (point[0], point[1]), (center_nut[0], fix_center_nut_y), (0, 255, 0), 5)  # 画指针线
 
-        cv2.line(srcimg, (center_nut[0], 0), (center_nut[0], srcimg.shape[0]), (255, 255, 0), 5)  # 中心y轴
-        cv2.line(srcimg, (0, fix_center_nut_y), (srcimg.shape[1], fix_center_nut_y), (255, 255, 0), 5)  # 中心x轴
+        cv2.line(src_img, (center_nut[0], 0), (center_nut[0], src_img.shape[0]), (255, 255, 0), 5)  # 中心y轴
+        cv2.line(src_img, (0, fix_center_nut_y), (src_img.shape[1], fix_center_nut_y), (255, 255, 0), 5)  # 中心x轴
 
         a = math.radians(90)  # 旋转到左边-0.1 (-45度)
-        r_x = (center_nut[0] - center_nut[0]) * math.cos(a) - (fix_center_nut_y - srcimg.shape[0]) * math.sin(-a) + \
+        r_x = (center_nut[0] - center_nut[0]) * math.cos(a) - (fix_center_nut_y - src_img.shape[0]) * math.sin(-a) + \
               center_nut[0]
-        r_y = (center_nut[0] - center_nut[0]) * math.sin(-a) + (fix_center_nut_y - srcimg.shape[0]) * math.cos(a) + \
-              srcimg.shape[0]
+        r_y = (center_nut[0] - center_nut[0]) * math.sin(-a) + (fix_center_nut_y - src_img.shape[0]) * math.cos(a) + \
+              src_img.shape[0]
 
-        cv2.line(srcimg, (center_nut[0], fix_center_nut_y), (int(r_x), int(r_y)), (255, 255, 0), 5)
+        cv2.line(src_img, (center_nut[0], fix_center_nut_y), (int(r_x), int(r_y)), (255, 255, 0), 5)
 
         b = math.radians(90)  # 旋转到右边0.9 (-45度)
-        r_x = (center_nut[0] - center_nut[0]) * math.cos(b) - (fix_center_nut_y - srcimg.shape[0]) * math.sin(b) + \
+        r_x = (center_nut[0] - center_nut[0]) * math.cos(b) - (fix_center_nut_y - src_img.shape[0]) * math.sin(b) + \
               center_nut[0]
-        r_y = (center_nut[0] - center_nut[0]) * math.sin(b) + (fix_center_nut_y - srcimg.shape[0]) * math.cos(b) + \
-              srcimg.shape[0]
+        r_y = (center_nut[0] - center_nut[0]) * math.sin(b) + (fix_center_nut_y - src_img.shape[0]) * math.cos(b) + \
+              src_img.shape[0]
 
         # print(r_x, r_y)
 
-        cv2.line(srcimg, (center_nut[0], fix_center_nut_y), (int(r_x), int(r_y)), (255, 255, 0), 5)
+        cv2.line(src_img, (center_nut[0], fix_center_nut_y), (int(r_x), int(r_y)), (255, 255, 0), 5)
 
         a = [r_x - center_nut[0], r_y - fix_center_nut_y]  # 重新标定以表盘中心为原点的坐标
 
@@ -266,10 +272,10 @@ class yolov5():
         num = ra * eps - 0.1
         print(f'num = {num}')
 
-        cv2.putText(srcimg, f'num={num:.5f}', (point[0], point[1] + 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0),
+        cv2.putText(src_img, f'num={num:.5f}', (point[0], point[1] + 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0),
                     thickness=3, lineType=cv2.LINE_AA)
 
-        return srcimg
+        return src_img
 
 
 def mult_test(onnx_path, img_dir, save_root_path, video=False):
