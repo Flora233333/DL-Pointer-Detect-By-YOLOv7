@@ -1,7 +1,7 @@
 from yolov5_dnn import mult_test
 
 if __name__ == "__main__":
-    onnx_path = r'best-sim.onnx'
+    onnx_path = r'weights/best-2.onnx'
     input_path = r'./input_image'
     save_path = r'./output_image'
 

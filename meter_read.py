@@ -1,30 +1,68 @@
 import cv2
 import math
+
+import numpy as np
+
 from pointer_process import find_lines
 
 
 def find_center(xy1, xy2, x_hat):
     k = (xy1[1] - xy2[1]) / (xy1[0] - xy2[0])
     b = xy1[1] - k * xy1[0]
-    center = (x_hat, int(k * x_hat + b))
+    center = [x_hat, int(k * x_hat + b)]
     return center
 
 
-def draw_line(src_img, center_nut, point):
+def draw_line(src_img, center_nut, pointer):
+    show = True
+    err = False
+    center = center_nut
     bias = 125  # 需修正的参数
+    # print(src_img.shape)
+    if src_img is None:
+        return src_img
 
-    
-    xy = find_lines(src_img[point[2] + 5:point[3] - 5, point[4] + 5:point[5] - 5])
+    pointer = np.array(pointer)
+    pointer[pointer < 0] = 0  # 可能会出现负的，修了个bug
 
-    xy[0][0] += point[4]  # 检测指针直线修正
-    xy[0][1] += point[2]
-    xy[1][0] += point[4]
-    xy[1][1] += point[2]
+    pointer_img = src_img[pointer[2] + 5:pointer[3] - 5, pointer[4] + 5:pointer[5] - 5]
 
-    center = find_center(xy[0], xy[1], center_nut[0])
-    print(center)
+    if pointer_img is not None:
+        xy, flag = find_lines(pointer_img, src_img, show)
+        if flag is False or xy == [[0, 0], [0, 0]]:
+            err = True
+    else:
+        err = True
 
-    cv2.line(src_img, (xy[0][0], xy[0][1]), (center[0], center[1]), (0, 255, 0), 5)  # 画指针线
+    if err:
+        return src_img
+
+    xy[0][0] += pointer[4]  # 检测指针直线修正
+    xy[0][1] += pointer[2]
+    xy[1][0] += pointer[4]
+    xy[1][1] += pointer[2]
+
+    if True:
+        center = find_center(xy[0], xy[1], center_nut[0])
+
+    pointer[0] = src_img.shape[1] / 2 - 1000  # 重新标定指针
+    pointer[1] = find_center(xy[0], center, src_img.shape[1] / 2 - 1000)[1]
+
+    # point[0] = xy[0][0]  # 重新修正
+    # point[1] = xy[0][1]
+
+
+    # while center[0] > src_img.shape[0] or center[1] > src_img.shape[1]:
+    #     center[0] = center[0] // 2
+    #     center[1] = center[1] // 2
+    print(f'center = {center}, center_nut = {center_nut}')
+
+    if center[0] > src_img.shape[1] or center[1] > src_img.shape[0]:
+        return src_img
+
+    # print(f'center = {center}')
+
+    cv2.line(src_img, (pointer[0], pointer[1]), (center[0], center[1]), (0, 255, 0), 5)  # 画指针线
 
     fix_center_nut_y = center_nut[1] - bias  # 修正后的中心y坐标
 
@@ -51,9 +89,11 @@ def draw_line(src_img, center_nut, point):
 
     cv2.line(src_img, (center[0], center[1]), (int(r_x), int(r_y)), (255, 255, 0), 5)
 
-    a = [r_x - center_nut[0], r_y - fix_center_nut_y]  # 重新标定以表盘中心为原点的坐标
+    
+    print(center)
+    a = [r_x - center[0], r_y - center[1]]  # 重新标定以表盘中心为原点的坐标
 
-    b = [point[0] - center_nut[0], point[1] - fix_center_nut_y]  # 重新标定以表盘中心为原点的坐标
+    b = [pointer[0] - center[0], pointer[1] - center[1]]  # 重新标定以表盘中心为原点的坐标
 
     beta = math.acos(  # ab=|a||b|cos(a)
         (a[0] * b[0] + a[1] * b[1]) / (math.sqrt(a[0] ** 2 + a[1] ** 2) * math.sqrt(b[0] ** 2 + b[1] ** 2)))
@@ -61,10 +101,10 @@ def draw_line(src_img, center_nut, point):
     # print(a, b)
     print(f'beta={beta * 180 / math.pi}')
 
-    print(f'center_nut = {center_nut[0], fix_center_nut_y}')
-    print(f'pointer = {point[0], point[1]}')
+    print(f'center = {center[0], center[1]}')
+    print(f'pointer = {pointer[0], pointer[1]}')
 
-    k = -(fix_center_nut_y - point[1]) / (center_nut[0] - point[0])
+    k = -(center[1] - pointer[1]) / (center[0] - pointer[0])
     print('k = %f' % k)
 
     eps = math.radians(45) - math.atan(k)  # (180 - 98) / 2
@@ -73,7 +113,12 @@ def draw_line(src_img, center_nut, point):
     num = ra * eps - 0.1
     print(f'num = {num}')
 
-    cv2.putText(src_img, f'num={num:.5f}', (point[0], point[1] + 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0),
+    cv2.putText(src_img, f'num={num:.4f}', (pointer[0], pointer[1] + 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0),
                 thickness=3, lineType=cv2.LINE_AA)
+
+    if show:
+        detect = cv2.resize(src_img, (0, 0), fx=0.2, fy=0.2)
+        cv2.imshow("detect", detect)
+        cv2.waitKey(0)
 
     return src_img

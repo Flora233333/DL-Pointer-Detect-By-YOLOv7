@@ -3,11 +3,13 @@ import math
 
 
 def draw_line(line, src_img):
+    flag = False
     sum_x1 = 0
     sum_y1 = 0
     sum_x2 = 0
     sum_y2 = 0
     if line is not None:
+        flag = True
         print(f'line_num={len(line)}')
         for i in range(0, len(line)):
             rho = line[i][0][0]
@@ -30,27 +32,41 @@ def draw_line(line, src_img):
         sum_x2 = sum_x2 // len(line)
         sum_y2 = sum_y2 // len(line)
         cv2.line(src_img, (sum_x1, sum_y1), (sum_x2, sum_y2), (255, 0, 0), 3, cv2.LINE_AA)
-    return src_img, [[sum_x1, sum_y1], [sum_x2, sum_y2]]
+
+    return flag, [[sum_x1, sum_y1], [sum_x2, sum_y2]], src_img
 
 
-def find_lines(img):
+def find_lines(pointer_img, src_img, show=False):
+    # 所有阈值都要细调
+
     # ret, img_ = cv2.threshold(img, 170, 205, cv2.THRESH_TRUNC + cv2.THRESH_OTSU)
-    img_canny = cv2.Canny(img, 160, 205)
+    # cv2.imshow("erosion", img)
+    # if cv2.waitKey(1) == ord('q'):
+    #     return False, [[0, 0], [0, 0]]
+    img_canny = cv2.Canny(pointer_img, 160, 205)
 
     img_blur = cv2.GaussianBlur(img_canny, (3, 3), 0)
 
     img_erode = cv2.erode(img_blur, (5, 5), iterations=1)
 
-    lines = cv2.HoughLines(img_erode, 1, math.pi / 180, 180)
+    lines = cv2.HoughLines(img_erode, 1, math.pi / 180, 180)  # 线的阈值要调
 
-    img_erode, xy = draw_line(lines, img_erode)
-    # cv2.imshow("erosion", img_erode)
-    # cv2.waitKey(0)
-    print(xy)
-    return xy
+    flag, xy, img_erode = draw_line(lines, img_erode)
 
+    while show:
+        src = cv2.resize(src_img, (0, 0), fx=0.2, fy=0.2)
+        cv2.imshow("src_img", src)
+        cv2.imshow("pointer", pointer_img)
+        cv2.imshow("pointer-process", img_erode)
+        if cv2.waitKey(1) == ord('q'):
+            show = False
 
-# img = cv2.imread("./pointer/19.jpg", 0)
+    # if cv2.waitKey(1) == ord('q'):
+    #     return flag, xy
+    # print(flag, xy)
+    return xy, flag
+
+# img = cv2.imread("./pointer/8.jpg", 0)
 # img_erode1 = find_lines(img)
 # cv2.imshow("erosion", img_erode1)
 # cv2.waitKey(0)

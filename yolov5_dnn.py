@@ -177,6 +177,7 @@ class yolov5:
         return output
 
     def detect(self, src_img):
+        # print(f'shape={src_img.shape}')
         im = src_img.copy()
         im, ratio, wh = self.letterbox(src_img, self.inpWidth, stride=self.stride, auto=False)
         # Sets the input to the network
@@ -186,7 +187,7 @@ class yolov5:
         # NMS
         pred = self.non_max_suppression(outs, self.confThreshold, agnostic=False)
 
-        center_nut = [100000000, 100000000]  # 表示inf
+        center_nut = [0, 100000000]  # 表示inf
         point = [0] * 6
 
         # draw box
@@ -207,14 +208,16 @@ class yolov5:
 
                 label = '%s' % (self.classes[int(classId)])
 
-                center_x = (int(left) + int(width)) // 2
-                center_y = (int(top) + int(height)) // 2
+                center_x = int((left + width) / 2)
+                center_y = int((top + height) / 2)
 
                 # print(f'{_class}:\tloc={center_x, center_y}')
 
-                if _class == 'nut' and center_nut[1] > center_y:
+                if _class == 'nut' and center_nut[1] > center_y and \
+                        (src_img.shape[1] / 2 - center_nut[0]) > (src_img.shape[1] / 2 - center_x):
                     center_nut[0] = center_x
                     center_nut[1] = center_y
+                    # print(f'center_nut={center_nut}')
                 if _class == 'pointer':
                     # pointer = src_img[top + 5:height - 5, left + 5:width - 5]  # 这个加5减5是为了去除框的红线的，虽然其实可以在画红线前取
                     # cv2.imshow("1", pointer)
@@ -232,7 +235,7 @@ class yolov5:
                 cv2.putText(src_img, label, (int(left - 20), int(top - 10)), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 255),
                             thickness=4, lineType=cv2.LINE_AA)
 
-            if point[0] == 0 and point[1] == 0:
+            if (point[0] == 0 and point[1] == 0) or (center_nut[0] == 0 and center_nut[1] == 0):
                 return src_img  # 没有找到指针
 
             src_img = draw_line(src_img, center_nut, point)
