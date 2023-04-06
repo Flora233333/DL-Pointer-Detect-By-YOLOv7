@@ -6,6 +6,7 @@ import time
 import math
 import os
 from numpy import array
+from meter_read import draw_line
 
 
 class Colors:
@@ -29,7 +30,7 @@ class Colors:
 colors = Colors()
 
 
-class yolov5():
+class yolov5:
     def __init__(self, onnx_path, confThreshold=0.25, nmsThreshold=0.45):
         self.classes = ['pointer', 'nut']
         self.colors = [np.random.randint(0, 255, size=3).tolist() for _ in range(len(self.classes))]
@@ -186,94 +187,55 @@ class yolov5():
         pred = self.non_max_suppression(outs, self.confThreshold, agnostic=False)
 
         center_nut = [100000000, 100000000]  # 表示inf
-        point = [0, 0]
+        point = [0] * 6
 
         # draw box
-        for i in pred[0]:
-            left = int((i[0] - wh[0]) / ratio[0])
-            top = int((i[1] - wh[1]) / ratio[1])
-            width = int((i[2] - wh[0]) / ratio[0])
-            height = int((i[3] - wh[1]) / ratio[1])
-            conf = i[4]
-            classId = i[5]
-            _class = self.classes[int(classId)]
-            cv2.rectangle(src_img, (int(left), int(top)), (int(width), int(height)), colors(classId, True), 5,
-                          lineType=cv2.LINE_AA)
-            # label = '%.2f' % conf
-            # label = '%s:%s' % (self.classes[int(classId)], label)
+        if len(pred[0]) > 0:  # 有无检测结果
 
-            label = '%s' % (self.classes[int(classId)])
+            for i in pred[0]:
+                left = int((i[0] - wh[0]) / ratio[0])
+                top = int((i[1] - wh[1]) / ratio[1])
+                width = int((i[2] - wh[0]) / ratio[0])
+                height = int((i[3] - wh[1]) / ratio[1])
+                conf = i[4]
+                classId = i[5]
+                _class = self.classes[int(classId)]
+                cv2.rectangle(src_img, (int(left), int(top)), (int(width), int(height)), colors(classId, True), 5,
+                              lineType=cv2.LINE_AA)
+                # label = '%.2f' % conf
+                # label = '%s:%s' % (self.classes[int(classId)], label)
 
-            center_x = (int(left) + int(width)) // 2
-            center_y = (int(top) + int(height)) // 2
+                label = '%s' % (self.classes[int(classId)])
 
-            # print(f'{_class}:\tloc={center_x, center_y}')
+                center_x = (int(left) + int(width)) // 2
+                center_y = (int(top) + int(height)) // 2
 
-            if _class == 'nut' and center_nut[1] > center_y:
-                center_nut[0] = center_x
-                center_nut[1] = center_y
-            if _class == 'pointer':
-                # pointer = src_img[top + 5:height - 5, left + 5:width - 5]  # 这个加5减5是为了去除框的红线的，虽然其实可以在画红线前取
-                # cv2.imshow("1", pointer)
-                # cv2.imwrite(f"./pointer/{random.randint(1, 20)}.jpg", pointer)
-                point[0] = center_x
-                point[1] = center_y
+                # print(f'{_class}:\tloc={center_x, center_y}')
 
-            # Display the label at the top of the bounding box
-            labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-            top = max(top, labelSize[1])
-            cv2.putText(src_img, label, (int(left - 20), int(top - 10)), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 255),
-                        thickness=4, lineType=cv2.LINE_AA)
+                if _class == 'nut' and center_nut[1] > center_y:
+                    center_nut[0] = center_x
+                    center_nut[1] = center_y
+                if _class == 'pointer':
+                    # pointer = src_img[top + 5:height - 5, left + 5:width - 5]  # 这个加5减5是为了去除框的红线的，虽然其实可以在画红线前取
+                    # cv2.imshow("1", pointer)
+                    # cv2.imwrite(f"./pointer/{random.randint(1, 20)}.jpg", pointer)
+                    point[0] = center_x
+                    point[1] = center_y
+                    point[2] = top
+                    point[3] = height
+                    point[4] = left
+                    point[5] = width
 
-        fix_center_nut_y = center_nut[1] - 130  # 修正后的中心y坐标
+                    # Display the label at the top of the bounding box
+                labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                top = max(top, labelSize[1])
+                cv2.putText(src_img, label, (int(left - 20), int(top - 10)), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 255),
+                            thickness=4, lineType=cv2.LINE_AA)
 
-        cv2.line(src_img, (point[0], point[1]), (center_nut[0], fix_center_nut_y), (0, 255, 0), 5)  # 画指针线
+            if point[0] == 0 and point[1] == 0:
+                return src_img  # 没有找到指针
 
-        cv2.line(src_img, (center_nut[0], 0), (center_nut[0], src_img.shape[0]), (255, 255, 0), 5)  # 中心y轴
-        cv2.line(src_img, (0, fix_center_nut_y), (src_img.shape[1], fix_center_nut_y), (255, 255, 0), 5)  # 中心x轴
-
-        a = math.radians(90)  # 旋转到左边-0.1 (-45度)
-        r_x = (center_nut[0] - center_nut[0]) * math.cos(a) - (fix_center_nut_y - src_img.shape[0]) * math.sin(-a) + \
-              center_nut[0]
-        r_y = (center_nut[0] - center_nut[0]) * math.sin(-a) + (fix_center_nut_y - src_img.shape[0]) * math.cos(a) + \
-              src_img.shape[0]
-
-        cv2.line(src_img, (center_nut[0], fix_center_nut_y), (int(r_x), int(r_y)), (255, 255, 0), 5)
-
-        b = math.radians(90)  # 旋转到右边0.9 (-45度)
-        r_x = (center_nut[0] - center_nut[0]) * math.cos(b) - (fix_center_nut_y - src_img.shape[0]) * math.sin(b) + \
-              center_nut[0]
-        r_y = (center_nut[0] - center_nut[0]) * math.sin(b) + (fix_center_nut_y - src_img.shape[0]) * math.cos(b) + \
-              src_img.shape[0]
-
-        # print(r_x, r_y)
-
-        cv2.line(src_img, (center_nut[0], fix_center_nut_y), (int(r_x), int(r_y)), (255, 255, 0), 5)
-
-        a = [r_x - center_nut[0], r_y - fix_center_nut_y]  # 重新标定以表盘中心为原点的坐标
-
-        b = [point[0] - center_nut[0], point[1] - fix_center_nut_y]  # 重新标定以表盘中心为原点的坐标
-
-        beta = math.acos(  # ab=|a||b|cos(a)
-            (a[0] * b[0] + a[1] * b[1]) / (math.sqrt(a[0] ** 2 + a[1] ** 2) * math.sqrt(b[0] ** 2 + b[1] ** 2)))
-
-        # print(a, b)
-        print(f'beta={beta * 180 / math.pi}')
-
-        print(f'center_nut = {center_nut[0], fix_center_nut_y}')
-        print(f'pointer = {point[0], point[1]}')
-
-        k = -(fix_center_nut_y - point[1]) / (center_nut[0] - point[0])
-        print('k = %f' % k)
-
-        eps = math.radians(45) - math.atan(k)  # (180 - 98) / 2
-
-        ra = 1 / math.radians(270)
-        num = ra * eps - 0.1
-        print(f'num = {num}')
-
-        cv2.putText(src_img, f'num={num:.5f}', (point[0], point[1] + 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0),
-                    thickness=3, lineType=cv2.LINE_AA)
+            src_img = draw_line(src_img, center_nut, point)
 
         return src_img
 
