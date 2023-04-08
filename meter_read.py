@@ -16,9 +16,10 @@ def find_center(xy1, xy2, x_hat):
 def draw_line(src_img, center_nut, pointer):
     show = True
     err = False
+
     center = center_nut
-    bias = 125  # 需修正的参数
-    # print(src_img.shape)
+    bias = 0  # 需修正的参数
+
     if src_img is None:
         return src_img
 
@@ -45,12 +46,14 @@ def draw_line(src_img, center_nut, pointer):
     if True:
         center = find_center(xy[0], xy[1], center_nut[0])
 
-    pointer[0] = src_img.shape[1] / 2 - 1000  # 重新标定指针
-    pointer[1] = find_center(xy[0], center, src_img.shape[1] / 2 - 1000)[1]
+    # pointer[0] = src_img.shape[1] / 2 - 1000  # 重新标定指针
+    # pointer[1] = find_center(xy[0], center, src_img.shape[1] / 2 - 1000)[1] + bias
+
+    pointer[0] = (xy[0][0] + xy[1][0]) // 2
+    pointer[1] = (xy[0][1] + xy[1][1]) // 2
 
     # point[0] = xy[0][0]  # 重新修正
     # point[1] = xy[0][1]
-
 
     # while center[0] > src_img.shape[0] or center[1] > src_img.shape[1]:
     #     center[0] = center[0] // 2
@@ -89,8 +92,8 @@ def draw_line(src_img, center_nut, pointer):
 
     cv2.line(src_img, (center[0], center[1]), (int(r_x), int(r_y)), (255, 255, 0), 5)
 
-    
-    print(center)
+
+    # print(center)
     a = [r_x - center[0], r_y - center[1]]  # 重新标定以表盘中心为原点的坐标
 
     b = [pointer[0] - center[0], pointer[1] - center[1]]  # 重新标定以表盘中心为原点的坐标
@@ -99,10 +102,10 @@ def draw_line(src_img, center_nut, pointer):
         (a[0] * b[0] + a[1] * b[1]) / (math.sqrt(a[0] ** 2 + a[1] ** 2) * math.sqrt(b[0] ** 2 + b[1] ** 2)))
 
     # print(a, b)
-    print(f'beta={beta * 180 / math.pi}')
+    # print(f'beta={beta * 180 / math.pi}')
 
-    print(f'center = {center[0], center[1]}')
-    print(f'pointer = {pointer[0], pointer[1]}')
+    # print(f'center = {center[0], center[1]}')
+    # print(f'pointer = {pointer[0], pointer[1]}')
 
     k = -(center[1] - pointer[1]) / (center[0] - pointer[0])
     print('k = %f' % k)
@@ -110,10 +113,15 @@ def draw_line(src_img, center_nut, pointer):
     eps = math.radians(45) - math.atan(k)  # (180 - 98) / 2
 
     ra = 1 / math.radians(270)
-    num = ra * eps - 0.1
-    print(f'num = {num}')
+    num_by_k = ra * eps - 0.1
+    num_by_angle = (beta / math.radians(270) * 1 - 0.1) * 0.1
+    print(f'num = {num_by_k}')
+    print(f'num by angle = {num_by_angle}')
 
-    cv2.putText(src_img, f'num={num:.4f}', (pointer[0], pointer[1] + 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0),
+    avg = (num_by_k + num_by_angle) / 2
+    print(f'avg = {avg}')
+
+    cv2.putText(src_img, f'num={avg:.3f}', (pointer[0], pointer[1] + 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0),
                 thickness=3, lineType=cv2.LINE_AA)
 
     if show:

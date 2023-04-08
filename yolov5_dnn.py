@@ -32,7 +32,7 @@ colors = Colors()
 
 class yolov5:
     def __init__(self, onnx_path, confThreshold=0.25, nmsThreshold=0.45):
-        self.classes = ['pointer', 'nut']
+        self.classes = ['-0.1', 'label', 'nut', 'pointer']
         self.colors = [np.random.randint(0, 255, size=3).tolist() for _ in range(len(self.classes))]
         num_classes = len(self.classes)
         self.anchors = [[10, 13, 16, 30, 33, 23], [30, 61, 62, 45, 59, 119], [116, 90, 156, 198, 373, 326]]
@@ -133,7 +133,7 @@ class yolov5:
         y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
         return y
 
-    def non_max_suppression(self, prediction, conf_thres=0.25, agnostic=False):  # 25200 = 20*20*3 + 40*40*3 + 80*80*3
+    def non_max_suppression(self, prediction, conf_thres=0.5, agnostic=False):  # 25200 = 20*20*3 + 40*40*3 + 80*80*3
         xc = prediction[
                  ..., 4] > conf_thres  # candidates,获取置信度，prediction为所有的预测结果.shape(1, 25200, 21),batch为1，25200个预测结果，21 = x,y,w,h,c + class个数
         # Settings

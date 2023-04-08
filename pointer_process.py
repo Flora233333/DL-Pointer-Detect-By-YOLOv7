@@ -36,6 +36,7 @@ def draw_line(line, src_img):
     return flag, [[sum_x1, sum_y1], [sum_x2, sum_y2]], src_img
 
 
+#  可以考虑裁剪长边来增加霍夫的稳定性
 def find_lines(pointer_img, src_img, show=False):
     # 所有阈值都要细调
 
@@ -45,7 +46,7 @@ def find_lines(pointer_img, src_img, show=False):
     #     return False, [[0, 0], [0, 0]]
     img_canny = cv2.Canny(pointer_img, 160, 205)
 
-    img_blur = cv2.GaussianBlur(img_canny, (3, 3), 0)
+    img_blur = cv2.GaussianBlur(img_canny, (5, 5), 1)
 
     img_erode = cv2.erode(img_blur, (5, 5), iterations=1)
 
