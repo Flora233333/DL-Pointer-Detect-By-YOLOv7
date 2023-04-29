@@ -92,7 +92,7 @@ def draw_line(src_img, center_nut, pointer):
 
     cv2.line(src_img, (center[0], center[1]), (int(r_x), int(r_y)), (255, 255, 0), 5)
 
-
+    # 待改善读数精度
     # print(center)
     a = [r_x - center[0], r_y - center[1]]  # 重新标定以表盘中心为原点的坐标
 
@@ -117,8 +117,8 @@ def draw_line(src_img, center_nut, pointer):
     num_by_angle = (beta / math.radians(270) * 1 - 0.1) * 0.1
     print(f'num = {num_by_k}')
     print(f'num by angle = {num_by_angle}')
-
-    avg = (num_by_k + num_by_angle) / 2
+    # 下面还可以变更(如差在一定范围类取加权,超过范围取最小值)
+    avg = 0.6 * num_by_k + 0.4 * num_by_angle
     print(f'avg = {avg}')
 
     cv2.putText(src_img, f'num={avg:.3f}', (pointer[0], pointer[1] + 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0),

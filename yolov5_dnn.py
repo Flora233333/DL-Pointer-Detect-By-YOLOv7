@@ -7,6 +7,9 @@ import math
 import os
 from numpy import array
 from meter_read import draw_line
+from number_detect import read_number
+
+k = 1
 
 
 class Colors:
@@ -32,7 +35,7 @@ colors = Colors()
 
 class yolov5:
     def __init__(self, onnx_path, confThreshold=0.25, nmsThreshold=0.45):
-        self.classes = ['-0.1', 'label', 'nut', 'pointer']
+        self.classes = ['-0.1', 'label', 'nut', 'pointer', 'start']
         self.colors = [np.random.randint(0, 255, size=3).tolist() for _ in range(len(self.classes))]
         num_classes = len(self.classes)
         self.anchors = [[10, 13, 16, 30, 33, 23], [30, 61, 62, 45, 59, 119], [116, 90, 156, 198, 373, 326]]
@@ -176,7 +179,8 @@ class yolov5:
             output[xi] = x[i]
         return output
 
-    def detect(self, src_img):
+    def detect(self, src_img, is_num=False):
+        global k
         # print(f'shape={src_img.shape}')
         im = src_img.copy()
         im, ratio, wh = self.letterbox(src_img, self.inpWidth, stride=self.stride, auto=False)
@@ -189,6 +193,7 @@ class yolov5:
 
         center_nut = [0, 100000000]  # 表示inf
         point = [0] * 6
+        number = [0] * 5
 
         # draw box
         if len(pred[0]) > 0:  # 有无检测结果
@@ -228,17 +233,36 @@ class yolov5:
                     point[3] = height
                     point[4] = left
                     point[5] = width
+                if _class == 'label' and top > number[0]:
+                    number[0] = top
+                    number[1] = height
+                    number[2] = left
+                    number[3] = width
+                    number[4] = 1  # 是否存在位
+                    number_img = src_img[number[0] + 5:number[1] - 5, number[2] + 5:number[3] - 5]
+                    # read_number(number_img)
+                    # cv2.imwrite(f'./number/{k}.jpg', number_img)
+                    k += 1
 
-                    # Display the label at the top of the bounding box
+                if '0' < _class < '9':
+                    pass
+
+                # Display the label at the top of the bounding box
                 labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
                 top = max(top, labelSize[1])
                 cv2.putText(src_img, label, (int(left - 20), int(top - 10)), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 255),
                             thickness=4, lineType=cv2.LINE_AA)
 
-            if (point[0] == 0 and point[1] == 0) or (center_nut[0] == 0 and center_nut[1] == 0):
-                return src_img  # 没有找到指针
+            if not is_num:
+                if (point[0] == 0 and point[1] == 0) or (center_nut[0] == 0 and center_nut[1] == 0):
+                    return src_img  # 没有找到指针
 
-            src_img = draw_line(src_img, center_nut, point)
+                if number[4] == 1:
+                    number_img = src_img[number[0] + 5:number[1] - 5, number[2] + 5:number[3] - 5]
+                    # cv2.imwrite(f'./number/{k}.jpg', number_img)
+                    # k += 1
+
+                src_img = draw_line(src_img, center_nut, point)
 
         return src_img
 
