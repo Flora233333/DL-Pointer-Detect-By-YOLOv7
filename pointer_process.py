@@ -37,7 +37,7 @@ def draw_line(line, src_img):
 
 
 #  可以考虑裁剪长边来增加霍夫的稳定性
-def find_lines(pointer_img, src_img, show=False):
+def find_lines(pointer_img, show_img, show=False):
     # 所有阈值都要细调
 
     # ret, img_ = cv2.threshold(img, 170, 205, cv2.THRESH_TRUNC + cv2.THRESH_OTSU)
@@ -55,11 +55,11 @@ def find_lines(pointer_img, src_img, show=False):
     flag, xy, img_erode = draw_line(lines, img_erode)
 
     while show:
-        src = cv2.resize(src_img, (0, 0), fx=0.2, fy=0.2)
-        cv2.imshow("src_img", src)
+        src_showimg = cv2.resize(show_img, (0, 0), fx=0.2, fy=0.2)
+        cv2.imshow("src_img", src_showimg)
         cv2.imshow("pointer", pointer_img)
         cv2.imshow("pointer-process", img_erode)
-        if cv2.waitKey(1) == ord('q'):
+        if cv2.waitKey(1) == ord('q') or cv2.waitKey(1) == ord('Q'):
             show = False
 
     # if cv2.waitKey(1) == ord('q'):

@@ -1,27 +1,24 @@
-#!/usr/bin/env python
-# -*- coding: UTF-8 -*-
-'''=================================================
-@File   :yolov5_ort.py
-@IDE    :PyCharm
-@Author :gpwang
-@Date   :2022/1/21
-@Desc   :用onnxruntime部署yolov5
-=================================================='''
 import cv2
 import onnxruntime
 import argparse
 import numpy as np
+import time
 
 from utils import letterbox, scale_coords
 
 
+# print(onnxruntime.get_device())
+# print(onnxruntime.__version__)
+# print(onnxruntime.get_available_providers())
+
+
 class Detector():
-    """
-    检测类
-    """
 
     def __init__(self, opt):
         super(Detector, self).__init__()
+        self.input_name = None
+        self.output_name = None
+        self.model = None
         self.img_size = opt.img_size
         self.threshold = opt.conf_thres
         self.iou_thres = opt.iou_thres
@@ -31,11 +28,8 @@ class Detector():
         self.names = ['-0.1', 'label', 'nut', 'pointer', 'start']
 
     def init_model(self):
-        """
-        模型初始化这一步比较固定写法
-        :return:
-        """
-        sess = onnxruntime.InferenceSession(self.weights)  # 加载模型权重
+
+        sess = onnxruntime.InferenceSession(self.weights, providers=['CPUExecutionProvider'])  # 加载模型权重
         self.input_name = sess.get_inputs()[0].name  # 获得输入节点
         output_names = []
         for i in range(len(sess.get_outputs())):
@@ -43,17 +37,13 @@ class Detector():
             output_names.append(sess.get_outputs()[i].name)  # 所有的输出节点
         print(output_names)
         self.output_name = sess.get_outputs()[0].name  # 获得输出节点的名称
-        print(f"input name {self.input_name}-----output_name{self.output_name}")
+        print(f"input name {self.input_name}-----output_name {self.output_name}")
         input_shape = sess.get_inputs()[0].shape  # 输入节点形状
         print("input_shape:", input_shape)
-        self.m = sess
+        self.model = sess
 
     def preprocess(self, img):
-        """
-        图片预处理过程
-        :param img:
-        :return:
-        """
+
         img0 = img.copy()
         img = letterbox(img, new_shape=self.img_size)[0]  # 图片预处理
         img = img[:, :, ::-1].transpose(2, 0, 1)
@@ -64,19 +54,19 @@ class Detector():
         return img0, img
 
     def detect(self, im):
-        """
 
-        :param img:
-        :return:
-        """
         img0, img = self.preprocess(im)
-        pred = self.m.run(None, {self.input_name: img})[0]  # 执行推理
+        # start = time.clock()
+        pred = self.model.run(None, {self.input_name: img})[0]  # 执行推理
         pred = pred.astype(np.float32)
         pred = np.squeeze(pred, axis=0)
+        # end = time.clock()
+        # print(f'deploy cost:{(end - start) * 100}ms')
+
         boxes = []
         classIds = []
         confidences = []
-        print(pred.shape)
+        # print(pred.shape)
         for detection in pred:
             scores = detection[5:]
             classID = np.argmax(scores)
@@ -109,7 +99,11 @@ def main(opt):
     image = cv2.imread(opt.img)
     shape = (det.img_size, det.img_size)
 
+    start = time.perf_counter()
     img, pred_boxes, pred_confes, pred_classes = det.detect(image)
+    end = time.perf_counter()
+    print(f'deploy cost:{(end - start) * 100}ms')
+
     if len(pred_boxes) > 0:
         for i, _ in enumerate(pred_boxes):
             box = pred_boxes[i]
@@ -123,15 +117,15 @@ def main(opt):
             cv2.rectangle(image, (x0, y0), (x1, y1), (0, 0, 255), thickness=2)
             cv2.putText(image, '{0}--{1:.2f}'.format(det.names[pred_classes[i]], pred_confes[i]), (x0, y0 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), thickness=1)
-    cv2.imshow("detector", image)
-    cv2.imwrite('../yolov5_onnxruntime_deploy-main/python/output.jpg', image)
+    # cv2.imshow("detector", image)
+    # cv2.imwrite('output.jpg', image)
     cv2.waitKey(0)
 
 
-#
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='./weights/add_new_img2023.4.25.onnx', help='onnx path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='weights/web_and_power-station_data.onnx',
+                        help='onnx path(s)')
     parser.add_argument('--img', type=str, default='./input_image/new.jpg', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
@@ -139,5 +133,5 @@ if __name__ == '__main__':
     parser.add_argument('--line-thickness', default=1, type=int, help='bounding box thickness (pixels)')
     parser.add_argument('--hide-labels', default=False, action='store_true', help='hide labels')
     parser.add_argument('--hide-conf', default=False, action='store_true', help='hide confidences')
-    opt = parser.parse_args()
+    opt, _ = parser.parse_known_args()
     main(opt)

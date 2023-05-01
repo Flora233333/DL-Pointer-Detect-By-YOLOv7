@@ -1,4 +1,5 @@
 import random
+import warnings
 
 import cv2
 import numpy as np
@@ -6,7 +7,8 @@ import time
 import math
 import os
 from numpy import array
-from meter_read import draw_line
+from meter_read import raw2process
+from detect_obj import DetectObj
 from number_detect import read_number
 
 k = 1
@@ -179,9 +181,11 @@ class yolov5:
             output[xi] = x[i]
         return output
 
-    def detect(self, src_img, is_num=False):
+    def detect(self, src_img):
         global k
         # print(f'shape={src_img.shape}')
+        show_img = src_img.copy()
+        # print(show_img.shape)
         im = src_img.copy()
         im, ratio, wh = self.letterbox(src_img, self.inpWidth, stride=self.stride, auto=False)
         # Sets the input to the network
@@ -191,9 +195,11 @@ class yolov5:
         # NMS
         pred = self.non_max_suppression(outs, self.confThreshold, agnostic=False)
 
-        center_nut = [0, 100000000]  # 表示inf
-        point = [0] * 6
-        number = [0] * 5
+        center_nut = DetectObj([0] * 4, 'nut')
+        center_nut.exist = False
+        pointer = DetectObj(None, 'pointer')
+        pointer.exist = False
+        # number = [0] * 5
 
         # draw box
         if len(pred[0]) > 0:  # 有无检测结果
@@ -206,89 +212,91 @@ class yolov5:
                 conf = i[4]
                 classId = i[5]
                 _class = self.classes[int(classId)]
-                cv2.rectangle(src_img, (int(left), int(top)), (int(width), int(height)), colors(classId, True), 5,
+                cv2.rectangle(show_img, (int(left), int(top)), (int(width), int(height)), colors(classId, True), 5,
                               lineType=cv2.LINE_AA)
                 # label = '%.2f' % conf
                 # label = '%s:%s' % (self.classes[int(classId)], label)
-
                 label = '%s' % (self.classes[int(classId)])
 
-                center_x = int((left + width) / 2)
-                center_y = int((top + height) / 2)
+                # center_x = int((left + width) / 2)
+                # center_y = int((top + height) / 2)
 
                 # print(f'{_class}:\tloc={center_x, center_y}')
 
-                if _class == 'nut' and center_nut[1] > center_y and \
-                        (src_img.shape[1] / 2 - center_nut[0]) > (src_img.shape[1] / 2 - center_x):
-                    center_nut[0] = center_x
-                    center_nut[1] = center_y
+                if _class == 'nut':
+                    center_x = (left + width) // 2
+                    center_y = (top + height) // 2
+                    if (src_img.shape[0] / 2 - center_nut.center_y) > (src_img.shape[0] / 2 - center_y) and \
+                            (src_img.shape[1] / 2 - center_nut.center_x) > (src_img.shape[1] / 2 - center_x):
+                        box = [int(left), int(top), int(width), int(height)]
+                        center_nut.load_boxes(box)
+                        center_nut.exist = True
+
                     # print(f'center_nut={center_nut}')
                 if _class == 'pointer':
-                    # pointer = src_img[top + 5:height - 5, left + 5:width - 5]  # 这个加5减5是为了去除框的红线的，虽然其实可以在画红线前取
-                    # cv2.imshow("1", pointer)
-                    # cv2.imwrite(f"./pointer/{random.randint(1, 20)}.jpg", pointer)
-                    point[0] = center_x
-                    point[1] = center_y
-                    point[2] = top
-                    point[3] = height
-                    point[4] = left
-                    point[5] = width
-                if _class == 'label' and top > number[0]:
-                    number[0] = top
-                    number[1] = height
-                    number[2] = left
-                    number[3] = width
-                    number[4] = 1  # 是否存在位
-                    number_img = src_img[number[0] + 5:number[1] - 5, number[2] + 5:number[3] - 5]
-                    # read_number(number_img)
-                    # cv2.imwrite(f'./number/{k}.jpg', number_img)
-                    k += 1
+                    box = [int(left), int(top), int(width), int(height)]
+                    pointer = DetectObj(box, 'pointer')
 
-                if '0' < _class < '9':
-                    pass
+                # if _class == 'label' and top > number[0]:
+                #     number[0] = top
+                #     number[1] = height
+                #     number[2] = left
+                #     number[3] = width
+                #     number[4] = 1  # 是否存在位
+                #     number_img = src_img[number[0] + 5:number[1] - 5, number[2] + 5:number[3] - 5]
+                #     # read_number(number_img)
+                #     # cv2.imwrite(f'./number/{k}.jpg', number_img)
+                #     k += 1
 
                 # Display the label at the top of the bounding box
                 labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
                 top = max(top, labelSize[1])
-                cv2.putText(src_img, label, (int(left - 20), int(top - 10)), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 255),
+                cv2.putText(show_img, label, (int(left - 20), int(top - 10)), cv2.FONT_HERSHEY_SIMPLEX, 2,
+                            (0, 255, 255),
                             thickness=4, lineType=cv2.LINE_AA)
 
-            if not is_num:
-                if (point[0] == 0 and point[1] == 0) or (center_nut[0] == 0 and center_nut[1] == 0):
-                    return src_img  # 没有找到指针
+            if show_img is not None:
+                if not pointer.exist or not center_nut.exist:
+                    print('Warning: no detect pointer or no detect nut')
+                    return show_img  # 没有找到指针
 
-                if number[4] == 1:
-                    number_img = src_img[number[0] + 5:number[1] - 5, number[2] + 5:number[3] - 5]
-                    # cv2.imwrite(f'./number/{k}.jpg', number_img)
-                    # k += 1
+                # if number[4] == 1:
+                #   number_img = src_img[number[0] + 5:number[1] - 5, number[2] + 5:number[3] - 5]
+                #   cv2.imwrite(f'./number/{k}.jpg', number_img)
+                #   k += 1
 
-                src_img = draw_line(src_img, center_nut, point)
+                show_img = raw2process(show_img, src_img, center_nut, pointer)
 
-        return src_img
+        return show_img
 
 
 def mult_test(onnx_path, img_dir, save_root_path, video=False):
     model = yolov5(onnx_path)
     if video:
         cap = cv2.VideoCapture(0)
-        frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        fps = cap.get(cv2.CAP_PROP_FPS)  # 视频平均帧率
-        size = (frame_height, frame_width)  # 尺寸和帧率和原视频相同
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        out = cv2.VideoWriter('zi.mp4', fourcc, fps, size)
+        # frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        # frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        # fps = cap.get(cv2.CAP_PROP_FPS)  # 视频平均帧率
+        # size = (frame_height, frame_width)  # 尺寸和帧率和原视频相同
+        # fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        # out = cv2.VideoWriter('zi.mp4', fourcc, fps, size)
         while cap.isOpened():
             ok, frame = cap.read()
             if not ok:
                 break
+
+            # start = time.perf_counter()
             frame = model.detect(frame)
-            out.write(frame)
+            # end = time.perf_counter()
+            # print(f'deploy cost:{(end - start) * 100}ms')
+
+            # out.write(frame)
             cv2.imshow('result', frame)
             c = cv2.waitKey(1) & 0xFF
             if c == 27 or c == ord('q'):
                 break
         cap.release()
-        out.release()
+        # out.release()
         cv2.destroyAllWindows()
     else:
         if not os.path.exists(save_root_path):
@@ -318,4 +326,4 @@ def mult_test(onnx_path, img_dir, save_root_path, video=False):
                     srcimg = cv2.imread(image_path)
                     srcimg = model.detect(srcimg)
                     print(f"finish:   {file}\n")
-                    cv2.imwrite(save_path, srcimg)
+                    # cv2.imwrite(save_path, srcimg)

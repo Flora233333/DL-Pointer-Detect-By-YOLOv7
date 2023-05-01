@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
-'''=================================================
-@File   :utils.py
-@IDE    :PyCharm
-@Author :gpwang
-@Date   :2022/1/21
-@Desc   :yolov5的一些处理工具
-=================================================='''
+
 import numpy as np
 import cv2
 

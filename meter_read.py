@@ -1,6 +1,6 @@
 import cv2
 import math
-
+from detect_obj import DetectObj
 import numpy as np
 
 from pointer_process import find_lines
@@ -13,44 +13,50 @@ def find_center(xy1, xy2, x_hat):
     return center
 
 
-def draw_line(src_img, center_nut, pointer):
+def raw2process(show_img, src_img, center_nut, pointer):
+    xy = []
     show = True
     err = False
 
-    center = center_nut
+    center = [center_nut.center_x, center_nut.center_y]
     bias = 0  # 需修正的参数
 
-    if src_img is None:
-        return src_img
+    # if src_img is None:
+    #     return src_img
 
-    pointer = np.array(pointer)
-    pointer[pointer < 0] = 0  # 可能会出现负的，修了个bug
-
-    pointer_img = src_img[pointer[2] + 5:pointer[3] - 5, pointer[4] + 5:pointer[5] - 5]
+    pointer_img = src_img[pointer.y1:pointer.y2, pointer.x1:pointer.x2]
 
     if pointer_img is not None:
-        xy, flag = find_lines(pointer_img, src_img, show)
+        xy, flag = find_lines(pointer_img, show_img, show)
         if flag is False or xy == [[0, 0], [0, 0]]:
             err = True
     else:
         err = True
 
     if err:
-        return src_img
+        print('Warning: detect pointer line err')
+        return show_img
 
-    xy[0][0] += pointer[4]  # 检测指针直线修正
-    xy[0][1] += pointer[2]
-    xy[1][0] += pointer[4]
-    xy[1][1] += pointer[2]
+    # print(xy)
+    # print(pointer.xy)
+
+    xy[0][0] += pointer.x1  # pointer_img -> src_img 检测指针直线坐标修正
+    xy[0][1] += pointer.y1
+    xy[1][0] += pointer.x1
+    xy[1][1] += pointer.y1
 
     if True:
-        center = find_center(xy[0], xy[1], center_nut[0])
+        center = find_center(xy[0], xy[1], center_nut.center_x)
 
     # pointer[0] = src_img.shape[1] / 2 - 1000  # 重新标定指针
     # pointer[1] = find_center(xy[0], center, src_img.shape[1] / 2 - 1000)[1] + bias
 
-    pointer[0] = (xy[0][0] + xy[1][0]) // 2
-    pointer[1] = (xy[0][1] + xy[1][1]) // 2
+    # 选择相信目标检测的中点
+    # cv2.circle(show_img, (pointer.center_x, pointer.center_y), 10, color=(0, 0, 255), thickness=-1)
+    # 这个是用霍夫直线解算出的中点
+    # pointer.center_x = (xy[0][0] + xy[1][0]) // 2
+    # pointer.center_y = (xy[0][1] + xy[1][1]) // 2
+    # cv2.circle(src_img, (pointer.center_x, pointer.center_y), 10, color=(0, 0, 255), thickness=-1)
 
     # point[0] = xy[0][0]  # 重新修正
     # point[1] = xy[0][1]
@@ -61,18 +67,20 @@ def draw_line(src_img, center_nut, pointer):
     print(f'center = {center}, center_nut = {center_nut}')
 
     if center[0] > src_img.shape[1] or center[1] > src_img.shape[0]:
-        return src_img
+        print('Warning: center xy excess img range')
+        return show_img
 
     # print(f'center = {center}')
 
-    cv2.line(src_img, (pointer[0], pointer[1]), (center[0], center[1]), (0, 255, 0), 5)  # 画指针线
+    cv2.line(show_img, (pointer.center_x, pointer.center_y), (center[0], center[1]), (0, 255, 0), 5,
+             lineType=cv2.LINE_AA)  # 画指针线
 
-    fix_center_nut_y = center_nut[1] - bias  # 修正后的中心y坐标
+    fix_center_nut_y = center_nut.center_y - bias  # 修正后的中心y坐标
 
     # cv2.line(src_img, (point[0], point[1]), (center_nut[0], fix_center_nut_y), (0, 255, 0), 5)  # 画指针线
 
-    cv2.line(src_img, (center[0], 0), (center[0], src_img.shape[0]), (255, 255, 0), 5)  # 中心y轴
-    cv2.line(src_img, (0, center[1]), (src_img.shape[1], center[1]), (255, 255, 0), 5)  # 中心x轴
+    cv2.line(show_img, (center[0], 0), (center[0], src_img.shape[0]), (255, 255, 0), 5, lineType=cv2.LINE_AA)  # 中心y轴
+    cv2.line(show_img, (0, center[1]), (src_img.shape[1], center[1]), (255, 255, 0), 5, lineType=cv2.LINE_AA)  # 中心x轴
 
     a = math.radians(90)  # 旋转到左边-0.1 (-45度)
     r_x = (center[0] - center[0]) * math.cos(a) - (center[1] - src_img.shape[0]) * math.sin(-a) + \
@@ -80,7 +88,7 @@ def draw_line(src_img, center_nut, pointer):
     r_y = (center[0] - center[0]) * math.sin(-a) + (center[1] - src_img.shape[0]) * math.cos(a) + \
           src_img.shape[0]
 
-    cv2.line(src_img, (center[0], center[1]), (int(r_x), int(r_y)), (255, 255, 0), 5)
+    cv2.line(show_img, (center[0], center[1]), (int(r_x), int(r_y)), (255, 255, 0), 5, lineType=cv2.LINE_AA)
 
     b = math.radians(90)  # 旋转到右边0.9 (-45度)
     r_x = (center[0] - center[0]) * math.cos(b) - (center[1] - src_img.shape[0]) * math.sin(b) + \
@@ -90,13 +98,13 @@ def draw_line(src_img, center_nut, pointer):
 
     # print(r_x, r_y)
 
-    cv2.line(src_img, (center[0], center[1]), (int(r_x), int(r_y)), (255, 255, 0), 5)
+    cv2.line(show_img, (center[0], center[1]), (int(r_x), int(r_y)), (255, 255, 0), 5, lineType=cv2.LINE_AA)
 
     # 待改善读数精度
     # print(center)
     a = [r_x - center[0], r_y - center[1]]  # 重新标定以表盘中心为原点的坐标
 
-    b = [pointer[0] - center[0], pointer[1] - center[1]]  # 重新标定以表盘中心为原点的坐标
+    b = [pointer.center_x - center[0], pointer.center_y - center[1]]  # 重新标定以表盘中心为原点的坐标
 
     beta = math.acos(  # ab=|a||b|cos(a)
         (a[0] * b[0] + a[1] * b[1]) / (math.sqrt(a[0] ** 2 + a[1] ** 2) * math.sqrt(b[0] ** 2 + b[1] ** 2)))
@@ -107,7 +115,7 @@ def draw_line(src_img, center_nut, pointer):
     # print(f'center = {center[0], center[1]}')
     # print(f'pointer = {pointer[0], pointer[1]}')
 
-    k = -(center[1] - pointer[1]) / (center[0] - pointer[0])
+    k = -(center[1] - pointer.center_y) / (center[0] - pointer.center_x)
     print('k = %f' % k)
 
     eps = math.radians(45) - math.atan(k)  # (180 - 98) / 2
@@ -121,12 +129,15 @@ def draw_line(src_img, center_nut, pointer):
     avg = 0.6 * num_by_k + 0.4 * num_by_angle
     print(f'avg = {avg}')
 
-    cv2.putText(src_img, f'num={avg:.3f}', (pointer[0], pointer[1] + 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0),
+    cv2.putText(show_img, f'num={avg:.3f}', (pointer.center_x, pointer.center_y + 150), cv2.FONT_HERSHEY_SIMPLEX, 2,
+                (0, 255, 0),
                 thickness=3, lineType=cv2.LINE_AA)
 
+    cv2.circle(show_img, (pointer.center_x, pointer.center_y), 10, color=(0, 0, 255), thickness=-1)
+
     if show:
-        detect = cv2.resize(src_img, (0, 0), fx=0.2, fy=0.2)
+        detect = cv2.resize(show_img, (0, 0), fx=0.3, fy=0.3)
         cv2.imshow("detect", detect)
         cv2.waitKey(0)
 
-    return src_img
+    return show_img
