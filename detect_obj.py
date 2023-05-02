@@ -10,7 +10,9 @@ import numpy as np
 class DetectObj:
 
     def __init__(self, box, category):
-        if box and category:
+        if category:
+            self.category = category
+        if box:
             box = np.array(box)
             if len(box[box < 0]) > 0:
                 box[box < 0] = 0
@@ -22,7 +24,6 @@ class DetectObj:
             self.xy = box
             self.center_x = int((self.x1 + self.x2) / 2)
             self.center_y = int((self.y1 + self.y2) / 2)
-            self.category = category
             self.exist = True
         else:
             self.exist = False
@@ -39,6 +40,12 @@ class DetectObj:
         self.xy = box
         self.center_x = (self.x1 + self.x2) // 2
         self.center_y = (self.y1 + self.y2) // 2
+        self.exist = True
+
+    def xy_is_zero(self):
+        if self.x1 == 0 and self.y1 == 0 and self.x2 == 0 and self.y2 == 0:
+            return True
+        return False
 
     def __str__(self):
         assert self.exist is True, 'This DetectObj not have assigned var'

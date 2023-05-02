@@ -99,10 +99,10 @@ def main(opt):
     image = cv2.imread(opt.img)
     shape = (det.img_size, det.img_size)
 
-    start = time.perf_counter()
+    start = time.time()
     img, pred_boxes, pred_confes, pred_classes = det.detect(image)
-    end = time.perf_counter()
-    print(f'deploy cost:{(end - start) * 100}ms')
+    end = time.time()
+    print(f'deploy cost:{(end - start) * 1000}ms')
 
     if len(pred_boxes) > 0:
         for i, _ in enumerate(pred_boxes):
@@ -117,7 +117,7 @@ def main(opt):
             cv2.rectangle(image, (x0, y0), (x1, y1), (0, 0, 255), thickness=2)
             cv2.putText(image, '{0}--{1:.2f}'.format(det.names[pred_classes[i]], pred_confes[i]), (x0, y0 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), thickness=1)
-    # cv2.imshow("detector", image)
+    cv2.imshow("detector", image)
     # cv2.imwrite('output.jpg', image)
     cv2.waitKey(0)
 
@@ -126,7 +126,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='weights/web_and_power-station_data.onnx',
                         help='onnx path(s)')
-    parser.add_argument('--img', type=str, default='./input_image/new.jpg', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--img', type=str, default='./input_image/handstand.jpg', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')

@@ -38,19 +38,32 @@ def draw_line(line, src_img):
 
 #  可以考虑裁剪长边来增加霍夫的稳定性
 def find_lines(pointer_img, show_img, show=False):
-    # 所有阈值都要细调
+    lines = []
+    line_threshold = 180
+    deta = 2  # 搜索步长
+    search_num = 90
+    assert search_num * deta <= line_threshold, 'search exceed line_threshold'
 
+    # 所有阈值都要细调
     # ret, img_ = cv2.threshold(img, 170, 205, cv2.THRESH_TRUNC + cv2.THRESH_OTSU)
     # cv2.imshow("erosion", img)
     # if cv2.waitKey(1) == ord('q'):
     #     return False, [[0, 0], [0, 0]]
+    pointer_img = cv2.cvtColor(pointer_img, cv2.COLOR_BGR2GRAY)
+
     img_canny = cv2.Canny(pointer_img, 160, 205)
 
     img_blur = cv2.GaussianBlur(img_canny, (5, 5), 1)
 
     img_erode = cv2.erode(img_blur, (5, 5), iterations=1)
 
-    lines = cv2.HoughLines(img_erode, 1, math.pi / 180, 180)  # 线的阈值要调
+    for i in range(search_num):  # 霍夫可变阈值
+        lines = cv2.HoughLines(img_erode, 1, math.pi / 180, line_threshold)  # 线的阈值要调
+        if lines is None:
+            line_threshold -= deta
+            print(line_threshold)
+        else:
+            break
 
     flag, xy, img_erode = draw_line(lines, img_erode)
 
