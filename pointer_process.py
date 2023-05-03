@@ -51,27 +51,33 @@ def find_lines(pointer_img, show_img, show=False):
     #     return False, [[0, 0], [0, 0]]
     pointer_img = cv2.cvtColor(pointer_img, cv2.COLOR_BGR2GRAY)
 
-    img_canny = cv2.Canny(pointer_img, 160, 205)
+    _, thres = cv2.threshold(pointer_img, 100, 255, cv2.THRESH_OTSU)
+
+    opening = cv2.morphologyEx(thres, cv2.MORPH_OPEN, (5, 5), iterations=10)
+
+    img_erode = cv2.erode(opening, (5, 5), iterations=10)
+
+    # test = cv2.Canny(test, 160, 205)
+
+    img_canny = cv2.Canny(img_erode, 160, 205)
 
     img_blur = cv2.GaussianBlur(img_canny, (5, 5), 1)
 
-    img_erode = cv2.erode(img_blur, (5, 5), iterations=1)
-
     for i in range(search_num):  # 霍夫可变阈值
-        lines = cv2.HoughLines(img_erode, 1, math.pi / 180, line_threshold)  # 线的阈值要调
+        lines = cv2.HoughLines(img_blur, 1, math.pi / 180, line_threshold)  # 线的阈值要调
         if lines is None:
             line_threshold -= deta
             print(line_threshold)
         else:
             break
 
-    flag, xy, img_erode = draw_line(lines, img_erode)
+    flag, xy, img_blur = draw_line(lines, img_blur)
 
     while show:
         src_showimg = cv2.resize(show_img, (0, 0), fx=0.2, fy=0.2)
         cv2.imshow("src_img", src_showimg)
-        cv2.imshow("pointer", pointer_img)
-        cv2.imshow("pointer-process", img_erode)
+        cv2.imshow("pointer", img_erode)
+        cv2.imshow("pointer-process", img_blur)
         if cv2.waitKey(1) == ord('q') or cv2.waitKey(1) == ord('Q'):
             show = False
 
