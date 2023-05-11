@@ -9,7 +9,7 @@ import numpy as np
 
 class DetectObj:
 
-    def __init__(self, box, category):
+    def __init__(self, box, category, exist=False):
         if category:
             self.category = category
         if box:
@@ -24,7 +24,7 @@ class DetectObj:
             self.xy = box
             self.center_x = int((self.x1 + self.x2) / 2)
             self.center_y = int((self.y1 + self.y2) / 2)
-            self.exist = True
+            self.exist = exist
         else:
             self.exist = False
 
@@ -46,6 +46,12 @@ class DetectObj:
         if self.x1 == 0 and self.y1 == 0 and self.x2 == 0 and self.y2 == 0:
             return True
         return False
+
+    def __len__(self):
+        if self.exist:
+            return 1
+        else:
+            return 0
 
     def __str__(self):
         assert self.exist is True, 'This DetectObj not have assigned var'
