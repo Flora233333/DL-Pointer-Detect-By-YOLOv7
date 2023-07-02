@@ -6,7 +6,7 @@ import imutils
 
 
 def test():
-    img = cv2.imread('number/1.jpg', 0)
+    img = cv2.imread('detect_obj_img/number/1.jpg', 0)
 
     # plt.hist(img.ravel(), 256, [0, 256]) # 分析灰度值，确定分割点
     # plt.show()

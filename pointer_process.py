@@ -2,6 +2,9 @@ import cv2
 import math
 
 
+# k = 0
+
+
 def draw_line(line, src_img):
     flag = False
     sum_x1 = 0
@@ -38,46 +41,53 @@ def draw_line(line, src_img):
 
 #  可以考虑裁剪长边来增加霍夫的稳定性
 def find_lines(pointer_img, show_img, show=False):
+    # global k
     lines = []
     line_threshold = 180
     deta = 2  # 搜索步长
     search_num = 90
     assert search_num * deta <= line_threshold, 'search exceed line_threshold'
+    # 试试颜色分割扣掉绿色和红色 或者 区域生长，种子为中心
 
     # 所有阈值都要细调
     # ret, img_ = cv2.threshold(img, 170, 205, cv2.THRESH_TRUNC + cv2.THRESH_OTSU)
     # cv2.imshow("erosion", img)
     # if cv2.waitKey(1) == ord('q'):
     #     return False, [[0, 0], [0, 0]]
+    # k += 1
+    # cv2.imwrite(f'pointer{k}.jpg', pointer_img)
     pointer_img = cv2.cvtColor(pointer_img, cv2.COLOR_BGR2GRAY)
+
+    pointer_img = cv2.GaussianBlur(pointer_img, (3, 3), 0)
 
     _, thres = cv2.threshold(pointer_img, 100, 255, cv2.THRESH_OTSU)
 
-    opening = cv2.morphologyEx(thres, cv2.MORPH_OPEN, (5, 5), iterations=10)
+    # opening = cv2.morphologyEx(thres, cv2.MORPH_OPEN, (5, 5), iterations=10)
 
-    img_erode = cv2.erode(opening, (5, 5), iterations=10)
+    img_erode = cv2.erode(thres, (5, 5), iterations=5)
 
     # test = cv2.Canny(test, 160, 205)
+    img_blur2 = cv2.GaussianBlur(img_erode, (5, 5), 0)
 
-    img_canny = cv2.Canny(img_erode, 160, 205)
+    img_canny = cv2.Canny(img_blur2, 160, 205)
 
-    img_blur = cv2.GaussianBlur(img_canny, (5, 5), 1)
+    img_blur3 = cv2.GaussianBlur(img_canny, (3, 3), 0)
 
     for i in range(search_num):  # 霍夫可变阈值
-        lines = cv2.HoughLines(img_blur, 1, math.pi / 180, line_threshold)  # 线的阈值要调
+        lines = cv2.HoughLines(img_blur3, 1, math.pi / 180, line_threshold)  # 线的阈值要调
         if lines is None:
             line_threshold -= deta
-            print(line_threshold)
+            # print(line_threshold)
         else:
             break
 
-    flag, xy, img_blur = draw_line(lines, img_blur)
-
+    flag, xy, img_target = draw_line(lines, img_blur3)
+    # cv2.imshow("pointer", img_target)
     while show:
-        src_showimg = cv2.resize(show_img, (0, 0), fx=0.2, fy=0.2)
+        src_showimg = cv2.resize(show_img, (0, 0), fx=0.3, fy=0.3)
         cv2.imshow("src_img", src_showimg)
         cv2.imshow("pointer", img_erode)
-        cv2.imshow("pointer-process", img_blur)
+        cv2.imshow("pointer-process", img_target)
         if cv2.waitKey(1) == ord('q') or cv2.waitKey(1) == ord('Q'):
             show = False
 
