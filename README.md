@@ -1,4 +1,4 @@
-# DNN-Pointer-Detect-By-YOLOv5
+# DNN-Pointer-Detect-By-YOLOv7
 
 #### 基于YOLOv7改进训练的指针检测模型，转化为ONNX模型在OpenCv DNN模块上进行部署，外加读数
 
